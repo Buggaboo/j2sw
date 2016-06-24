@@ -1,0 +1,406 @@
+grammar org.j2sw.Dsl with org.eclipse.xtext.common.Terminals
+
+generate dsl 'http://www.j2sw.org/Dsl'
+
+CompilationUnit:
+	(packageDecl=PackageDeclaration)? (importDecls+=ImportDeclaration)* (typeDecls+=TypeDeclaration)*;
+
+PackageDeclaration:
+	'package' name=Name ';';
+
+ImportDeclaration:
+	'import' ('static')? name=Name ('.' '*')? ';';
+
+Modifiers:
+	{Modifiers} (('public' | 'static' | 'protected' | 'private' | 'final' | 'abstract' | 'synchronized' | 'native' | 'transient' |
+	'volatile' | 'strictfp' | annotation+=Annotation))*;
+
+TypeDeclaration:
+	{TypeDeclaration} (';' | mods+=Modifiers (classInterfDecl=ClassOrInterfaceDeclaration | enumDecl=EnumDeclaration | annotDecl=AnnotationTypeDeclaration));
+
+ClassOrInterfaceDeclaration:
+	typeCategory=('class' | 'interface') id=ID (typeParams+=TypeParameters)? (exts=ExtendsList)? (impls+=ImplementsList)? body=ClassOrInterfaceBody;
+
+ExtendsList:
+	'extends' exts=ClassOrInterfaceType (',' impls+=ClassOrInterfaceType)*; // wtf? multiple inheritance?
+
+ImplementsList:
+	'implements' typeKind+=ClassOrInterfaceType (',' typeKind+=ClassOrInterfaceType)*;
+
+EnumDeclaration:
+	'enum' id=ID (impls+=ImplementsList)? body=EnumBody;
+
+EnumBody:
+	'{' constants+=EnumConstant (',' constants+=EnumConstant)* (';' (bodies+=ClassOrInterfaceBodyDeclaration)*)? '}';
+
+EnumConstant:
+	id=ID (args=Arguments)? (body=ClassOrInterfaceBody)?;
+
+TypeParameters:
+	'<' typeParams+=TypeParameter (',' typeParams+=TypeParameter)* '>';
+
+TypeParameter:
+	id=ID (type=TypeBound)?;
+
+TypeBound:
+	'extends' typeKind+=ClassOrInterfaceType ('&' typeKind+=ClassOrInterfaceType)*;
+
+ClassOrInterfaceBody:
+	{ClassOrInterfaceBody} '{' (body+=ClassOrInterfaceBodyDeclaration)* '}';
+
+ClassOrInterfaceBodyDeclaration:
+	{ClassOrInterfaceBodyDeclaration} (init=Initializer | mods=Modifiers (nestedClassEnumType=ClassOrInterfaceDeclaration | enumDecl=EnumDeclaration | ctor=ConstructorDeclaration | field=FieldDeclaration |
+	method=MethodDeclaration) | ';');
+
+FieldDeclaration:
+	type=Type varDecl+=VariableDeclarator (',' varDecl+=VariableDeclarator)* ';';
+
+VariableDeclarator:
+	varDeclId=VariableDeclaratorId ('=' varInit=VariableInitializer)?;
+
+VariableDeclaratorId:
+	id=ID (squareBrackets+='[' ']')*;
+
+VariableInitializer:
+	(arrayInit=ArrayInitializer | expr=Expression);
+
+ArrayInitializer:
+	{ArrayInitializer} '{' (varInit+=VariableInitializer (',' varInit+=VariableInitializer)*)? (',')? '}';
+
+MethodDeclaration:
+	(typeParams=TypeParameters)? resultType=ResultType methodDecl=MethodDeclarator ('throws' throwsList=NameList)? (block=Block | ';');
+
+MethodDeclarator:
+	id=ID formalParams=FormalParameters (squareBrackets+='[' ']')*;
+
+FormalParameters:
+	{FormalParameters} '(' (params+=FormalParameter (',' params+=FormalParameter)*)? ')';
+
+FormalParameter:
+	finality=('final')? type=Type ('...')? varDeclId=VariableDeclaratorId; // wtf is '...'?
+
+ConstructorDeclaration:
+	(typeParams=TypeParameters)? id=ID formalParams=FormalParameters ('throws' throwsList=NameList)? '{' (ctorInvoc=ExplicitConstructorInvocation)? (statements+=BlockStatement)* '}';
+
+ExplicitConstructorInvocation:
+	(self='this' args=Arguments ';' | (expr=PrimaryExpression '.')? parent='super' args=Arguments ';');
+
+Initializer:
+	(staticness='static')? block=Block;
+
+Type:
+	(refType=ReferenceType | primType=PrimitiveType);
+
+ReferenceType:
+	(primType+=PrimitiveType (squareBracketsAlpha+='[' ']')+ | (typeKind=ClassOrInterfaceType) (squareBracketsBeta+='[' ']')*);
+
+ClassOrInterfaceType:
+	ids+=ID (typeArgs+=TypeArguments)? ('.' ids+=ID (typeArgs+=TypeArguments)?)*;
+
+TypeArguments:
+	'<' typeArgs+=TypeArgument (',' typeArgs+=TypeArgument)* '>';
+
+TypeArgument:
+	{TypeArgument} (refType=ReferenceType | '?' (wildCard=WildcardBounds)?);
+
+WildcardBounds:
+	('extends' refType=ReferenceType | 'super' refType=ReferenceType);
+
+PrimitiveType:
+	('boolean' | 'char' | 'byte' | 'short' | 'int' | 'long' | 'float' | 'double');
+
+ResultType:
+	{ResultType} ('void' | type=Type);
+
+Name:
+	ids+=ID ('.' ids+=ID)*;
+
+NameList:
+	names+=Name (',' names+=Name)*;
+
+Expression:
+	condExpr=ConditionalExpression (assignOp=AssignmentOperator expr=Expression)?;
+
+AssignmentOperator:
+	('=' | '*=' | '/=' | '%=' | '+=' | '-=' | '<<=' | '>>=' | '>>>=' | '&=' | '^=' | '|=');
+
+ConditionalExpression:
+	condExpr=ConditionalOrExpression ('?' exprAlpha=Expression ':' exprBeta=Expression)?;
+
+ConditionalOrExpression:
+	expr+=ConditionalAndExpression ('||' expr+=ConditionalAndExpression)*;
+
+ConditionalAndExpression:
+	expr+=InclusiveOrExpression ('&&' expr+=InclusiveOrExpression)*;
+
+InclusiveOrExpression:
+	expr+=ExclusiveOrExpression ('|' expr+=ExclusiveOrExpression)*;
+
+ExclusiveOrExpression:
+	expr+=AndExpression ('^' expr+=AndExpression)*;
+
+AndExpression:
+	expr+=EqualityExpression ('&' expr+=EqualityExpression)*;
+
+EqualityExpression:
+	expr+=InstanceOfExpression (('==' | '!=') expr+=InstanceOfExpression)*;
+
+InstanceOfExpression:
+	expr+=RelationalExpression ('instanceof' type=Type)?;
+
+RelationalExpression:
+	expr+=ShiftExpression (ops+=('<' | '>' | '<=' | '>=') expr+=ShiftExpression)*;
+
+ShiftExpression:
+	expr+=AdditiveExpression (ops+=('<<' | RSIGNEDSHIFT | RUNSIGNEDSHIFT) expr+=AdditiveExpression)*;
+
+AdditiveExpression:
+	expr+=MultiplicativeExpression (ops+=('+' | '-') expr+=MultiplicativeExpression)*;
+
+MultiplicativeExpression:
+	expr+=UnaryExpression (ops+=('*' | '/' | '%') expr+=UnaryExpression)*;
+
+UnaryExpression:
+	(sign=('+' | '-') unaryExpr=UnaryExpression | preIncrExpr=PreIncrementExpression | preDecrExpr=PreDecrementExpression | unaryExpNeg=UnaryExpressionNotPlusMinus);
+
+PreIncrementExpression:
+	'++' expr=PrimaryExpression;
+
+PreDecrementExpression:
+	'--' expr=PrimaryExpression;
+
+UnaryExpressionNotPlusMinus:
+	(negOp=('~' | '!') unaryExpr=UnaryExpression | castExpr=CastExpression | postfixExpr=PostfixExpression);
+
+CastLookahead:
+	('(' primType=PrimitiveType | '(' indexerType=Type '[' ']' | '(' castType=Type ')' (bitNegOp='~' | negOp='!' | openBracket='(' | id=ID | thisOp='this' | superOp='super' | newOp='new' | literal=Literal));
+
+PostfixExpression:
+	expr=PrimaryExpression op=('++' | '--')?;
+
+CastExpression:
+	('(' castType=Type ')' expr=UnaryExpression | '(' castType=Type ')' expr=UnaryExpressionNotPlusMinus);
+
+PrimaryExpression:
+	suffixes+=PrimaryPrefix (suffixes+=PrimarySuffix)*;
+
+MemberSelector:
+	'.' args=TypeArguments id=ID;
+
+PrimaryPrefix:
+	(literal=Literal | thisOp='this' | superOp='super' '.' id=ID | '(' expr=Expression ')' | allocExpr=AllocationExpression | resultType=ResultType '.' 'class' | name=Name);
+
+PrimarySuffix:
+	(thisOp='.' 'this' | '.' allocExpr=AllocationExpression | selector=MemberSelector | '[' bracketExpr=Expression ']' | '.' id=ID | args=Arguments);
+
+// Comments and whitespace
+terminal ML_COMMENT:
+	'/*'->'*/';
+
+terminal SL_COMMENT:
+	'//' !('\n' | '\r')* ('\r'? '\n')?;
+
+terminal WS:
+	(' ' | '\t' | '\r' | '\n')+;
+
+	// Integer literals
+terminal SIGN:
+	('+' | '-');
+
+terminal BIN_DIGITS:
+	('0' | '1')+;
+
+terminal BIN_DIGITS_UNDERSCORE:
+	(BIN_DIGITS | '_')*;
+
+terminal DEC_DIGITS:
+	('0'..'9')+;
+
+terminal DEC_DIGITS_UNDERSCORE:
+	(DEC_DIGITS | '_')*;
+
+terminal HEX_DIGITS_UNDERSCORE:
+	('0'..'9' | 'a'..'f' | 'A'..'F' | '_')+;
+
+BitWidth:
+	decDigits=DEC_DIGITS;
+
+DecimalNumber:
+	{DecimalNumber} (decDigits=DEC_DIGITS | decDigitsUnderscore=DEC_DIGITS_UNDERSCORE)?;
+
+BaseLiteral:
+	('b' | 'B') binDigitsUnderscore=BIN_DIGITS_UNDERSCORE
+	//                              |  ('o' | 'O') OctDigitsUnderscore
+	| ('d' | 'D') decDigitsUnderscore=DEC_DIGITS_UNDERSCORE
+	| ('h' | 'H') hexDigitsUnderscore=HEX_DIGITS_UNDERSCORE;
+
+UnsignedIntLiteral:
+	(sign=SIGN? decNum=DecimalNumber) | (sign=SIGN? literal=BaseLiteral);
+
+SignedIntLiteral:
+	bitWidth=BitWidth baseLiteral=BaseLiteral;
+
+IntegerLiteral:
+	{IntegerLiteral}
+	zero='0' | one='1'
+	| signedLiteral=SignedIntLiteral
+	| unsignedLiteral=UnsignedIntLiteral;
+
+FloatLiteral hidden():
+	decNumAlpha=DecimalNumber '.' (digits=EXP_DEC_DIGITS | decNumBeta=DecimalNumber);
+
+terminal EXP_DEC_DIGITS:
+	(DEC_DIGITS ('e' | 'E') SIGN? DEC_DIGITS);
+
+	// String literals
+terminal STRING_LITERAL:
+	'"' ('\\' ('b' | 't' | 'n' | 'f' | 'r' | 'u' | '"' | "'" | '\\') | !('\\' | '"'))* '"' |
+	"'" ('\\' ('b' | 't' | 'n' | 'f' | 'r' | 'u' | '"' | "'" | '\\') | !('\\' | "'"))* "'";
+
+terminal CHARACTER_LITERAL:
+	"'" ANY_OTHER "'";
+
+Literal:
+	(intLit=IntegerLiteral | floatLit=FloatLiteral | charLit=CHARACTER_LITERAL | stringLit=STRING_LITERAL | boolLit=BooleanLiteral |
+	nullLit=NullLiteral);
+
+BooleanLiteral:
+	truthiness=('true' | 'false');
+
+NullLiteral:
+	'null';
+
+Arguments:
+	{Arguments}
+	'(' (args=ArgumentList)? ')';
+
+ArgumentList:
+	expr+=Expression (',' expr+=Expression)*;
+
+AllocationExpression:
+	('new' primType=PrimitiveType arrayInits=ArrayDimsAndInits | 'new' nonPrimType=ClassOrInterfaceType (typeArgs=TypeArguments)? (arrayInits=ArrayDimsAndInits | args=Arguments
+	(body=ClassOrInterfaceBody)?));
+
+ArrayDimsAndInits:
+	(('[' expr+=Expression ']')+ (squareBrackets+='[' ']')* | (squareBrackets+='[' ']')+ arrayInit=ArrayInitializer);
+
+Statement:
+	(labeledSt=LabeledStatement | assertSt=AssertStatement | block=Block | emptySt=EmptyStatement | expr=StatementExpression ';' | switchSt=SwitchStatement | ifSt=IfStatement
+	| whileSt=WhileStatement | doSt=DoStatement | forSt=ForStatement | breakSt=BreakStatement | continueSt=ContinueStatement | returnSt=ReturnStatement | throwSt=ThrowStatement
+	| synchSt=SynchronizedStatement | trySt=TryStatement); // TODO add lambda etc.
+
+AssertStatement:
+	'assert' exprAlpha=Expression (':' exprBeta=Expression)? ';';
+
+LabeledStatement:
+	id=ID ':' st=Statement;
+
+Block:
+	{Block}
+	'{' (blockSt+=BlockStatement)* '}';
+
+BlockStatement:
+	(localVarDecl=LocalVariableDeclaration ';' | st=Statement | typeDecl=ClassOrInterfaceDeclaration);
+
+LocalVariableDeclaration:
+	finality=('final')? type=Type varDecls+=VariableDeclarator (',' varDecls+=VariableDeclarator)*;
+
+EmptyStatement:
+	';';
+
+StatementExpression:
+	(preIncrExpr=PreIncrementExpression | preDecrExpr=PreDecrementExpression | primaryExpr=PrimaryExpression (plusOp='++' | minOp='--' | assignOp=AssignmentOperator expr=Expression)?);
+
+SwitchStatement:
+	'switch' '(' expr=Expression ')' '{' (switchLabel+=SwitchLabel (block+=BlockStatement)*)* '}';
+
+SwitchLabel:
+	('case' expr=Expression ':' | defaultOp='default' ':');
+
+IfStatement:
+	'if' '(' Expression ')' ifSt=Statement ('else' elseSt=Statement)?;
+
+WhileStatement:
+	'while' '(' expr=Expression ')' st=Statement;
+
+DoStatement:
+	'do' st=Statement 'while' '(' expr=Expression ')' ';';
+
+ForStatement:
+	'for' '(' (type=Type id=ID ':' expr=Expression | (forInit=ForInit)? ';' (forExpr=Expression)? ';' (forUpdate=ForUpdate)?) ')' st=Statement;
+
+ForInit:
+	(decl=LocalVariableDeclaration | st=StatementExpressionList);
+
+StatementExpressionList:
+	expr+=StatementExpression (',' expr+=StatementExpression)*;
+
+ForUpdate:
+	list=StatementExpressionList;
+
+BreakStatement:
+	{BreakStatement} 'break' (id=ID)? ';';
+
+ContinueStatement:
+	{ContinueStatement} 'continue' (id=ID)? ';';
+
+ReturnStatement:
+	{ReturnStatement} 'return' (expr=Expression)? ';';
+
+ThrowStatement:
+	{ThrowStatement}
+	'throw' expr=Expression ';';
+
+SynchronizedStatement:
+	'synchronized' '(' expr=Expression ')' block=Block;
+
+TryStatement:
+	'try' block+=Block ('catch' '(' params+=FormalParameter ')' block+=Block)* ('finally' finalBlock=Block)?;
+
+terminal RUNSIGNEDSHIFT:
+	('>' '>' '>');
+
+terminal RSIGNEDSHIFT:
+	('>' '>');
+
+Annotation:
+	(normal=NormalAnnotation | single=SingleMemberAnnotation | marker=MarkerAnnotation);
+
+NormalAnnotation:
+	'@' name=Name '(' (value=MemberValuePairs)? ')';
+
+MarkerAnnotation:
+	'@' name=Name;
+
+SingleMemberAnnotation:
+	'@' name=Name '(' value=MemberValue ')';
+
+MemberValuePairs:
+	pairs+=MemberValuePair (',' pairs+=MemberValuePair)*;
+
+MemberValuePair:
+	id=ID '=' value=MemberValue;
+
+MemberValue:
+	(annot=Annotation | init=MemberValueArrayInitializer | condExpr=ConditionalExpression);
+
+MemberValueArrayInitializer:
+	'{' values+=MemberValue (',' values+=MemberValue)* (',')? '}';
+
+AnnotationTypeDeclaration:
+	'@' 'interface' id=ID body=AnnotationTypeBody;
+
+AnnotationTypeBody:
+	{AnnotationTypeBody}
+	'{' (decls+=AnnotationTypeMemberDeclaration)* '}';
+
+AnnotationTypeMemberDeclaration:
+	{AnnotationTypeMemberDeclaration}
+	(mods=Modifiers (type=Type id=ID '(' ')' (defaultVal=DefaultValue)? ';' | typeDecl=ClassOrInterfaceDeclaration | enumDecl=EnumDeclaration |
+	annotDecl=AnnotationTypeDeclaration | fieldDecl=FieldDeclaration) | (';'));
+
+DefaultValue:
+	'default' MemberValue;
+	
+terminal ID:
+	('a'..'z' | 'A'..'Z' | '_') ('a'..'z' | 'A'..'Z' | '_' | '0'..'9')*;

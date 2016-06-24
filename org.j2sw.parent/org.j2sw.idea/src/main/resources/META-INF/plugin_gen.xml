@@ -1,0 +1,93 @@
+<idea-plugin version="2">
+	<extensions defaultExtensionNs="org.eclipse.xtext.idea">
+		<package
+			uri="http://www.j2sw.org/Dsl"
+			class="org.j2sw.dsl.DslPackage"
+		/>
+		<resourceFactory 
+			type="java"
+			class="org.eclipse.xtext.resource.IResourceFactory"
+			factoryClass="org.j2sw.idea.DslExtensionFactory"
+		/>
+		<resourceServiceProvider
+			uriExtension="java"
+			class="org.eclipse.xtext.idea.resource.IResourceIdeaServiceProvider"
+			factoryClass="org.j2sw.idea.DslExtensionFactory"
+		/>
+
+		<lang.setup
+			language="org.j2sw.Dsl"
+			implementationClass="org.j2sw.idea.DslIdeaSetup"
+		/>
+	</extensions>
+
+	<extensions defaultExtensionNs="com.intellij">
+		<psi.treeChangePreprocessor implementation="org.j2sw.idea.lang.psi.DslCodeBlockModificationListener"/>
+
+		<fileTypeFactory implementation="org.j2sw.idea.lang.DslFileTypeFactory"/>
+		<stubElementTypeHolder class="org.j2sw.idea.lang.DslElementTypeProvider"/>
+		<lang.ast.factory 
+			language="org.j2sw.Dsl"
+			factoryClass="org.j2sw.idea.DslExtensionFactory"
+			implementationClass="org.eclipse.xtext.idea.lang.BaseXtextASTFactory"
+		/>
+		<lang.parserDefinition 
+			language="org.j2sw.Dsl"
+			factoryClass="org.j2sw.idea.DslExtensionFactory"
+			implementationClass="org.j2sw.idea.lang.parser.DslParserDefinition"
+		/>
+		<lang.findUsagesProvider 
+			language="org.j2sw.Dsl"
+			factoryClass="org.j2sw.idea.DslExtensionFactory"
+			implementationClass="org.eclipse.xtext.idea.findusages.BaseXtextFindUsageProvider"
+		/>
+		<lang.refactoringSupport 
+			language="org.j2sw.Dsl"
+			factoryClass="org.j2sw.idea.DslExtensionFactory"
+			implementationClass="org.eclipse.xtext.idea.refactoring.BaseXtextRefactoringSupportProvider"
+		/>
+		<lang.namesValidator 
+			language="org.j2sw.Dsl"
+			factoryClass="org.j2sw.idea.DslExtensionFactory"
+			implementationClass="com.intellij.lang.refactoring.NamesValidator"
+		/>
+		<lang.syntaxHighlighterFactory key="org.j2sw.Dsl" implementationClass="org.j2sw.idea.highlighting.DslSyntaxHighlighterFactory" />
+		<lang.braceMatcher 
+			language="org.j2sw.Dsl"
+			factoryClass="org.j2sw.idea.DslExtensionFactory"
+			implementationClass="com.intellij.lang.PairedBraceMatcher"
+		/>
+		<annotator 
+			language="org.j2sw.Dsl"
+			factoryClass="org.j2sw.idea.DslExtensionFactory"
+			implementationClass="org.eclipse.xtext.idea.annotation.IssueAnnotator"
+		/>
+		<completion.contributor language="org.j2sw.Dsl" implementationClass="org.j2sw.idea.completion.DslCompletionContributor"/>
+		<pom.declarationSearcher implementation="org.j2sw.idea.lang.pom.DslPomDeclarationSearcher"/>
+
+		<lang.psiStructureViewFactory 
+			language="org.j2sw.Dsl"
+			factoryClass="org.j2sw.idea.DslExtensionFactory"
+			implementationClass="com.intellij.lang.PsiStructureViewFactory"
+		/>
+		<facetType implementation="org.j2sw.idea.facet.DslFacetType"/>
+		<lang.documentationProvider 
+			language="org.j2sw.Dsl"
+			factoryClass="org.j2sw.idea.DslExtensionFactory"
+			implementationClass="org.eclipse.xtext.idea.documentation.IdeaDocumentationProvider"
+		/>
+		<colorSettingsPage implementation="org.j2sw.idea.highlighting.DslColorSettingsPage"/>
+		<highlightVisitor implementation="org.j2sw.idea.highlighting.DslSemanticHighlightVisitor"/>
+
+		<lang.formatter 
+			language="org.j2sw.Dsl"
+			factoryClass="org.j2sw.idea.DslExtensionFactory"
+			implementationClass="com.intellij.formatting.FormattingModelBuilder"
+		/>
+		<lang.commenter 
+			language="org.j2sw.Dsl"
+			factoryClass="org.j2sw.idea.DslExtensionFactory"
+			implementationClass="com.intellij.lang.CodeDocumentationAwareCommenter"
+		/>
+	</extensions>
+</idea-plugin>

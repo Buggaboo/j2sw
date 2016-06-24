@@ -1,0 +1,4 @@
+include 'org.j2sw'
+include 'org.j2sw.ide'
+include 'org.j2sw.idea'
+include 'org.j2sw.web'
