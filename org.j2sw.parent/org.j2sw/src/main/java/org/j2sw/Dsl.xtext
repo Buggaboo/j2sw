@@ -10,13 +10,28 @@ PackageDeclaration:
 
 ImportDeclaration:
 	'import' ('static')? name=Name ('.' '*')? ';';
+	
+/*
+enum Modifier: PUBLIC='public' | STATIC='static' | PROTECTED='protected' | PRIVATE='private' | FINAL='final' | ABSTRACT='abstract' | SYNCHRONIZED='synchronized' | NATIVE='native' | TRANSIENT='transient' |
+	VOLATILE='volatile' | STRICTFP='strictfp';
+*/
 
+CommonModifier: 
+	static?='static'? & final?='final'? & abstract?='abstract' & visibility=Visibility;
+    
+TypeBodyModifier:
+	native?='native' & transient?='transient' & volatile?='volatile' & strictfp?='strictfp'  & synchronized?='synchronized' & mod=CommonModifier;
+ 
+enum Visibility:
+    PUBLIC='public' | PRIVATE='private' | PROTECTED='protected';
+    
+/*
 Modifiers:
-	{Modifiers} (('public' | 'static' | 'protected' | 'private' | 'final' | 'abstract' | 'synchronized' | 'native' | 'transient' |
-	'volatile' | 'strictfp' | annotation+=Annotation))*;
+	{Modifiers} (modifier+=Modifier | annotation+=Annotation)*;
+*/
 
 TypeDeclaration:
-	{TypeDeclaration} (';' | mods+=Modifiers (classInterfDecl=ClassOrInterfaceDeclaration | enumDecl=EnumDeclaration | annotDecl=AnnotationTypeDeclaration));
+	{TypeDeclaration} (/*';' |*/ mod=CommonModifier (classInterfDecl=ClassOrInterfaceDeclaration | enumDecl=EnumDeclaration | annotDecl=AnnotationTypeDeclaration));
 
 ClassOrInterfaceDeclaration:
 	typeCategory=('class' | 'interface') id=ID (typeParams+=TypeParameters)? (exts=ExtendsList)? (impls+=ImplementsList)? body=ClassOrInterfaceBody;
@@ -49,8 +64,7 @@ ClassOrInterfaceBody:
 	{ClassOrInterfaceBody} '{' (body+=ClassOrInterfaceBodyDeclaration)* '}';
 
 ClassOrInterfaceBodyDeclaration:
-	{ClassOrInterfaceBodyDeclaration} (init=Initializer | mods=Modifiers (nestedClassEnumType=ClassOrInterfaceDeclaration | enumDecl=EnumDeclaration | ctor=ConstructorDeclaration | field=FieldDeclaration |
-	method=MethodDeclaration) | ';');
+	{ClassOrInterfaceBodyDeclaration} (init=Initializer | mods=TypeBodyModifier (nestedClassEnumType=ClassOrInterfaceDeclaration | enumDecl=EnumDeclaration | ctorOrMethod=MethodOrCtorDeclaration | field=FieldDeclaration) | ';');
 
 FieldDeclaration:
 	type=Type varDecl+=VariableDeclarator (',' varDecl+=VariableDeclarator)* ';';
@@ -67,8 +81,20 @@ VariableInitializer:
 ArrayInitializer:
 	{ArrayInitializer} '{' (varInit+=VariableInitializer (',' varInit+=VariableInitializer)*)? (',')? '}';
 
+/*
+ConstructorDeclaration:
+	(typeParams=TypeParameters)? id=ID formalParams=FormalParameters ('throws' throwsList=NameList)? '{' (ctorInvoc=ExplicitConstructorInvocation)? (statements+=BlockStatement)* '}';
+
 MethodDeclaration:
 	(typeParams=TypeParameters)? resultType=ResultType methodDecl=MethodDeclarator ('throws' throwsList=NameList)? (block=Block | ';');
+*/
+
+MethodOrCtorDeclaration:
+	(typeParams=TypeParameters)?
+		(id=ID formalParams=FormalParameters ('throws' throwsList=NameList)?
+			'{' (ctorInvoc=ExplicitConstructorInvocation)? (statements+=BlockStatement)* '}' |
+			resultType=ResultType methodDecl=MethodDeclarator ('throws' throwsList=NameList)? (block=Block | ';')
+		);
 
 MethodDeclarator:
 	id=ID formalParams=FormalParameters (squareBrackets+='[' ']')*;
@@ -77,16 +103,13 @@ FormalParameters:
 	{FormalParameters} '(' (params+=FormalParameter (',' params+=FormalParameter)*)? ')';
 
 FormalParameter:
-	finality=('final')? type=Type ('...')? varDeclId=VariableDeclaratorId; // wtf is '...'?
-
-ConstructorDeclaration:
-	(typeParams=TypeParameters)? id=ID formalParams=FormalParameters ('throws' throwsList=NameList)? '{' (ctorInvoc=ExplicitConstructorInvocation)? (statements+=BlockStatement)* '}';
+	final?=('final')? type=Type ('...')? varDeclId=VariableDeclaratorId; // wtf is '...'?
 
 ExplicitConstructorInvocation:
-	(self='this' args=Arguments ';' | (expr=PrimaryExpression '.')? parent='super' args=Arguments ';');
+	(self?='this' args=Arguments ';' | (expr=PrimaryExpression '.')? parent='super' args=Arguments ';');
 
 Initializer:
-	(staticness='static')? block=Block;
+	(static?='static')? block=Block;
 
 Type:
 	(refType=ReferenceType | primType=PrimitiveType);
@@ -104,7 +127,7 @@ TypeArgument:
 	{TypeArgument} (refType=ReferenceType | '?' (wildCard=WildcardBounds)?);
 
 WildcardBounds:
-	('extends' refType=ReferenceType | 'super' refType=ReferenceType);
+	(ext?='extends' | sup?='super') refType=ReferenceType;
 
 PrimitiveType:
 	('boolean' | 'char' | 'byte' | 'short' | 'int' | 'long' | 'float' | 'double');
@@ -125,7 +148,7 @@ AssignmentOperator:
 	('=' | '*=' | '/=' | '%=' | '+=' | '-=' | '<<=' | '>>=' | '>>>=' | '&=' | '^=' | '|=');
 
 ConditionalExpression:
-	condExpr=ConditionalOrExpression ('?' exprAlpha=Expression ':' exprBeta=Expression)?;
+	expr=ConditionalOrExpression ('?' exprAlpha=Expression ':' exprBeta=Expression)?;
 
 ConditionalOrExpression:
 	expr+=ConditionalAndExpression ('||' expr+=ConditionalAndExpression)*;
@@ -146,7 +169,7 @@ EqualityExpression:
 	expr+=InstanceOfExpression (('==' | '!=') expr+=InstanceOfExpression)*;
 
 InstanceOfExpression:
-	expr+=RelationalExpression ('instanceof' type=Type)?;
+	expr=RelationalExpression ('instanceof' type=Type)?;
 
 RelationalExpression:
 	expr+=ShiftExpression (ops+=('<' | '>' | '<=' | '>=') expr+=ShiftExpression)*;
@@ -161,7 +184,7 @@ MultiplicativeExpression:
 	expr+=UnaryExpression (ops+=('*' | '/' | '%') expr+=UnaryExpression)*;
 
 UnaryExpression:
-	(sign=('+' | '-') unaryExpr=UnaryExpression | preIncrExpr=PreIncrementExpression | preDecrExpr=PreDecrementExpression | unaryExpNeg=UnaryExpressionNotPlusMinus);
+	(sign=SIGN unaryExpr=UnaryExpression | preIncrExpr=PreIncrementExpression | preDecrExpr=PreDecrementExpression | unaryExpNeg=UnaryExpressionNotPlusMinus);
 
 PreIncrementExpression:
 	'++' expr=PrimaryExpression;
@@ -191,7 +214,7 @@ PrimaryPrefix:
 	(literal=Literal | thisOp='this' | superOp='super' '.' id=ID | '(' expr=Expression ')' | allocExpr=AllocationExpression | resultType=ResultType '.' 'class' | name=Name);
 
 PrimarySuffix:
-	(thisOp='.' 'this' | '.' allocExpr=AllocationExpression | selector=MemberSelector | '[' bracketExpr=Expression ']' | '.' id=ID | args=Arguments);
+	(thisOp?='.' 'this' | '.' allocExpr=AllocationExpression | selector=MemberSelector | '[' bracketExpr=Expression ']' | '.' id=ID | args=Arguments);
 
 // Comments and whitespace
 terminal ML_COMMENT:
@@ -203,7 +226,7 @@ terminal SL_COMMENT:
 terminal WS:
 	(' ' | '\t' | '\r' | '\n')+;
 
-	// Integer literals
+// Integer literals
 terminal SIGN:
 	('+' | '-');
 
@@ -213,20 +236,25 @@ terminal BIN_DIGITS:
 terminal BIN_DIGITS_UNDERSCORE:
 	(BIN_DIGITS | '_')*;
 
+// same as INT
+/*
 terminal DEC_DIGITS:
 	('0'..'9')+;
+*/
 
 terminal DEC_DIGITS_UNDERSCORE:
-	(DEC_DIGITS | '_')*;
+	(INT | '_')*;
 
 terminal HEX_DIGITS_UNDERSCORE:
 	('0'..'9' | 'a'..'f' | 'A'..'F' | '_')+;
 
+/*
 BitWidth:
-	decDigits=DEC_DIGITS;
+	decDigits=INT;
+*/
 
 DecimalNumber:
-	{DecimalNumber} (decDigits=DEC_DIGITS | decDigitsUnderscore=DEC_DIGITS_UNDERSCORE)?;
+	{DecimalNumber} (decDigits=INT | decDigitsUnderscore=DEC_DIGITS_UNDERSCORE)?;
 
 BaseLiteral:
 	('b' | 'B') binDigitsUnderscore=BIN_DIGITS_UNDERSCORE
@@ -235,10 +263,10 @@ BaseLiteral:
 	| ('h' | 'H') hexDigitsUnderscore=HEX_DIGITS_UNDERSCORE;
 
 UnsignedIntLiteral:
-	(sign=SIGN? decNum=DecimalNumber) | (sign=SIGN? literal=BaseLiteral);
+	(sign=SIGN)? (decNum=DecimalNumber | literal=BaseLiteral);
 
 SignedIntLiteral:
-	bitWidth=BitWidth baseLiteral=BaseLiteral;
+	bitWidth=INT baseLiteral=BaseLiteral;
 
 IntegerLiteral:
 	{IntegerLiteral}
@@ -250,7 +278,7 @@ FloatLiteral hidden():
 	decNumAlpha=DecimalNumber '.' (digits=EXP_DEC_DIGITS | decNumBeta=DecimalNumber);
 
 terminal EXP_DEC_DIGITS:
-	(DEC_DIGITS ('e' | 'E') SIGN? DEC_DIGITS);
+	(INT ('e' | 'E') SIGN? INT);
 
 	// String literals
 terminal STRING_LITERAL:
@@ -285,7 +313,7 @@ ArrayDimsAndInits:
 	(('[' expr+=Expression ']')+ (squareBrackets+='[' ']')* | (squareBrackets+='[' ']')+ arrayInit=ArrayInitializer);
 
 Statement:
-	(labeledSt=LabeledStatement | assertSt=AssertStatement | block=Block | emptySt=EmptyStatement | expr=StatementExpression ';' | switchSt=SwitchStatement | ifSt=IfStatement
+	(labeledSt=LabeledStatement | assertSt=AssertStatement | block=Block | /*emptySt=EmptyStatement |*/  expr=StatementExpression ';' | switchSt=SwitchStatement | ifSt=IfStatement
 	| whileSt=WhileStatement | doSt=DoStatement | forSt=ForStatement | breakSt=BreakStatement | continueSt=ContinueStatement | returnSt=ReturnStatement | throwSt=ThrowStatement
 	| synchSt=SynchronizedStatement | trySt=TryStatement); // TODO add lambda etc.
 
@@ -305,8 +333,10 @@ BlockStatement:
 LocalVariableDeclaration:
 	finality=('final')? type=Type varDecls+=VariableDeclarator (',' varDecls+=VariableDeclarator)*;
 
+/*
 EmptyStatement:
 	';';
+*/
 
 StatementExpression:
 	(preIncrExpr=PreIncrementExpression | preDecrExpr=PreDecrementExpression | primaryExpr=PrimaryExpression (plusOp='++' | minOp='--' | assignOp=AssignmentOperator expr=Expression)?);
@@ -364,8 +394,10 @@ terminal RSIGNEDSHIFT:
 	('>' '>');
 
 Annotation:
-	(normal=NormalAnnotation | single=SingleMemberAnnotation | marker=MarkerAnnotation);
+	('@' name=Name) ('(' (valuePairs=MemberValuePairs | value=MemberValue) ')')?;
+//	(normal=NormalAnnotation | single=SingleMemberAnnotation | marker=MarkerAnnotation);
 
+/*
 NormalAnnotation:
 	'@' name=Name '(' (value=MemberValuePairs)? ')';
 
@@ -374,7 +406,8 @@ MarkerAnnotation:
 
 SingleMemberAnnotation:
 	'@' name=Name '(' value=MemberValue ')';
-
+*/
+ 
 MemberValuePairs:
 	pairs+=MemberValuePair (',' pairs+=MemberValuePair)*;
 
@@ -396,7 +429,7 @@ AnnotationTypeBody:
 
 AnnotationTypeMemberDeclaration:
 	{AnnotationTypeMemberDeclaration}
-	(mods=Modifiers (type=Type id=ID '(' ')' (defaultVal=DefaultValue)? ';' | typeDecl=ClassOrInterfaceDeclaration | enumDecl=EnumDeclaration |
+	(mods=TypeBodyModifier (type=Type id=ID '(' ')' (defaultVal=DefaultValue)? ';' | typeDecl=ClassOrInterfaceDeclaration | enumDecl=EnumDeclaration |
 	annotDecl=AnnotationTypeDeclaration | fieldDecl=FieldDeclaration) | (';'));
 
 DefaultValue:
